@@ -85,8 +85,22 @@ void EvolutionSolver::solve(const std::vector<Activity>& tasks, int numTasks, in
                 newPopulation.push_back(parent1);
             }
         }
+        // Na końcu pętli generacji
+int bestFit = *std::min_element(fitness.begin(), fitness.end());
+int avgFit = std::accumulate(fitness.begin(), fitness.end(), 0.0) / fitness.size();
+int worstFit = *std::max_element(fitness.begin(), fitness.end());
+
+std::ofstream out("statystyki_generacji.csv", std::ios::app);
+if (out.is_open()) {
+    if (g == 0)  // nagłówek tylko raz
+        out << "generacja;best;average;worst\n";
+    out << g << ";" << bestFit << ";" << avgFit << ";" << worstFit << "\n";
+    out.close();
+}
+
 
         population = newPopulation;
+
     }
     saveScheduleCSV("best_schedule.csv");
     zapiszDoCSV("detailed_schedule.csv");
@@ -354,8 +368,8 @@ void EvolutionSolver::zapiszStatystykiDoCSV(const std::string& nazwaPliku, int r
     double worst = *std::max_element(kosztyPokolen.begin(), kosztyPokolen.end());
     double avg = std::accumulate(kosztyPokolen.begin(), kosztyPokolen.end(), 0.0) / kosztyPokolen.size();
 
-    int sciezka = obliczDlugoscSciezkiKrytycznej(schedule);
-    double avgDevCPM = 100.0 * (makespan - sciezka) / (double)sciezka;
+    int sciezka = obliczDlugoscSciezkiKrytycznej(bestSchedule);
+double avgDevCPM = 100.0 * (bestMakespan - sciezka) / (double)sciezka;
 
     std::ofstream out;
     bool istnieje = std::ifstream(nazwaPliku).good();
@@ -376,19 +390,18 @@ void EvolutionSolver::zapiszStatystykiDoCSV(const std::string& nazwaPliku, int r
 
 void EvolutionSolver::zapiszWykorzystanieZasobow(const std::string& nazwaPliku, int liczbaZasobow) const {
     int maksCzas = 0;
-    for (const Activity& z : schedule)
-        if (z.end_time > maksCzas) maksCzas = z.end_time;
+for (const Activity& z : bestSchedule)
+    if (z.end_time > maksCzas) maksCzas = z.end_time;
 
-    std::vector<std::vector<int>> zuzycie(maksCzas + 1, std::vector<int>(liczbaZasobow, 0));
+std::vector<std::vector<int>> zuzycie(maksCzas + 1, std::vector<int>(liczbaZasobow, 0));
 
-    for (const Activity& z : schedule) {
-        for (int t = z.start_time; t < z.end_time; ++t) {
-            for (int r = 0; r < liczbaZasobow; ++r) {
-                zuzycie[t][r] += z.resourceRequirements[r];
-            }
+for (const Activity& z : bestSchedule) {
+    for (int t = z.start_time; t < z.end_time; ++t) {
+        for (int r = 0; r < liczbaZasobow; ++r) {
+            zuzycie[t][r] += z.resourceRequirements[r];
         }
     }
-
+}
     std::ofstream out(nazwaPliku);
     if (!out.is_open()) {
         std::cerr << "Nie można otworzyć pliku do zapisu: " << nazwaPliku << "\n";

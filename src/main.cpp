@@ -12,7 +12,7 @@ using namespace std;
 int main() 
 {
     RCPSPLoader loader;
-if (!loader.wczytajZPliku("j301_1.sm")) {
+if (!loader.wczytajZPliku("j1201_1.sm")) {
     std::cerr << "Błąd wczytywania instancji.\n";
     return 1;
 }
@@ -174,8 +174,8 @@ std::cout << "[SimulatedAnnealing] Czas wykonania: " << elapsedSA.count() << " s
 
 auto startEA = std::chrono::high_resolution_clock::now();
 
-int populacja = 10;
-int pokolenia = 10;
+int populacja = 500;
+int pokolenia = 1000;
 double prawdMutacji = 0.05;
 double prawdKrzyzowania = 0.7;
 int rozmiarTurnieju = 3;
