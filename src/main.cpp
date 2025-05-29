@@ -3,16 +3,16 @@
 #include "TabuSearchSolver.h"
 #include "SimulatedAnnealingSolver.h"
 #include "GreedySolver.h"
+#include "EvolutionSolver.h"
 
 #include <chrono>
-//#include "EvolutionSolver.h"
 #include <iostream>
 using namespace std;
 
 int main() 
 {
     RCPSPLoader loader;
-if (!loader.wczytajZPliku("j601_1.sm")) {
+if (!loader.wczytajZPliku("j301_1.sm")) {
     std::cerr << "Błąd wczytywania instancji.\n";
     return 1;
 }
@@ -77,7 +77,7 @@ std::cout << "[GreedySolver] Czas wykonania: " << elapsedGreedy.count() << " sek
 
  
    // === TABU SEARCH ===
-auto startTS = std::chrono::high_resolution_clock::now();
+/*auto startTS = std::chrono::high_resolution_clock::now();
 
 int tabuIteracje = 1000;
 int dlugoscTabu = 100;
@@ -172,6 +172,41 @@ std::cout << "[SimulatedAnnealing] Czas wykonania: " << elapsedSA.count() << " s
 
 */
 
+auto startEA = std::chrono::high_resolution_clock::now();
+
+int populacja = 10;
+int pokolenia = 10;
+double prawdMutacji = 0.05;
+double prawdKrzyzowania = 0.7;
+int rozmiarTurnieju = 3;
+
+int najlepszyRunEA = -1;
+int najlepszyKosztEA = std::numeric_limits<int>::max();
+EvolutionSolver najlepszyEA(populacja, pokolenia, prawdMutacji, prawdKrzyzowania, rozmiarTurnieju);
+
+for (int run = 0; run < liczbaUruchomien; ++run)
+{
+    EvolutionSolver solver(populacja, pokolenia, prawdMutacji, prawdKrzyzowania, rozmiarTurnieju);
+    solver.solve(loader.zadania, loader.liczbaZadan, loader.liczbaZasobow, loader.zasobyPojemnosc);
+    solver.zapiszStatystykiDoCSV("wyniki_evolution.csv", run);
+
+    if (solver.getMakespan() < najlepszyKosztEA)
+    {
+        najlepszyKosztEA = solver.getMakespan();
+        najlepszyRunEA = run;
+        najlepszyEA = solver;
+        najlepszyEA.zapiszWykorzystanieZasobow("zasoby_evolution.csv", loader.getLiczbaZasobow());
+    }
+}
+
+najlepszyEA.zapiszDoCSV("harmonogram_evolution.csv");
+
+std::cout << "Najlepszy EVOLUTION run: #" << najlepszyRunEA << "\n";
+std::cout << "Koszt (makespan): " << najlepszyKosztEA << "\n";
+
+auto stopEA = std::chrono::high_resolution_clock::now();
+std::chrono::duration<double> elapsedEA = stopEA - startEA;
+std::cout << "[EvolutionSolver] Czas wykonania: " << elapsedEA.count() << " sekund\n";
 
 auto stopwsio = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsedwsio = stopwsio - startwsio;
