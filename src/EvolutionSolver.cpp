@@ -67,9 +67,9 @@ for (int i = 0; i < populationSize; ++i)
             {
                 auto [child1, child2] = crossoverOX(parent1, parent2);
 
-                if (std::generate_canonical<double, 10>(gen) < mutationRate)
+              //  if (std::generate_canonical<double, 10>(gen) < mutationRate)
                     mutateSwap(child1);
-                if (std::generate_canonical<double, 10>(gen) < mutationRate)
+                //if (std::generate_canonical<double, 10>(gen) < mutationRate)
                     mutateSwap(child2);
 
                // std::cout << "    Potomek 1: ";
