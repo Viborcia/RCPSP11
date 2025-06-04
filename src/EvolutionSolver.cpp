@@ -16,19 +16,22 @@ void EvolutionSolver::solve(const std::vector<Activity>& tasks, int numTasks, in
     std::mt19937 gen(std::random_device{}());
 
     std::vector<Chromosome> population;
-    for (int i = 0; i < populationSize; ++i)
-    {
-        Chromosome c(numTasks);
-        std::iota(c.begin(), c.end(), 0);
-        std::shuffle(c.begin(), c.end(), gen);
-        population.push_back(c);
-    }
+for (int i = 0; i < populationSize; ++i)
+{
+    Chromosome c;
+    for (int j = 0; j < numTasks; ++j)
+        c.push_back(j);
+
+    std::shuffle(c.begin(), c.end(), gen);
+    population.push_back(c);
+}
+
 
     std::vector<int> fitness(populationSize);
 
     for (int g = 0; g < generations; ++g)
     {
-        std::cout << "Generacja: " << g << std::endl;
+        //std::cout << "Generacja: " << g << std::endl;
 
         for (int i = 0; i < populationSize; ++i)
         {
@@ -39,12 +42,12 @@ void EvolutionSolver::solve(const std::vector<Activity>& tasks, int numTasks, in
             {
                 bestMakespan = fitness[i];
                 bestSchedule = schedule;
-                std::cout << "  Nowy najlepszy makespan: " << bestMakespan << " w generacji " << g << std::endl;
+                //std::cout << "  Nowy najlepszy makespan: " << bestMakespan << " w generacji " << g << std::endl;
             }
         }
     int bestInGeneration = *std::min_element(fitness.begin(), fitness.end());
 
-        std::cout << "  Najlepszy fitness w tej generacji: " << *std::min_element(fitness.begin(), fitness.end()) << std::endl;
+       // std::cout << "  Najlepszy fitness w tej generacji: " << *std::min_element(fitness.begin(), fitness.end()) << std::endl;
             kosztyPokolen.push_back(bestInGeneration);
 
         std::vector<Chromosome> newPopulation;
@@ -54,11 +57,11 @@ void EvolutionSolver::solve(const std::vector<Activity>& tasks, int numTasks, in
             Chromosome parent1 = tournamentSelection(population, fitness);
             Chromosome parent2 = tournamentSelection(population, fitness);
 
-            std::cout << "    Rodzic 1: ";
-            for (int gene : parent1) std::cout << gene << " ";
-            std::cout << "\n    Rodzic 2: ";
-            for (int gene : parent2) std::cout << gene << " ";
-            std::cout << std::endl;
+            //std::cout << "    Rodzic 1: ";
+          //  for (int gene : parent1) std::cout << gene << " ";
+          //  std::cout << "\n    Rodzic 2: ";
+          //  for (int gene : parent2) std::cout << gene << " ";
+           // std::cout << std::endl;
 
             if (std::generate_canonical<double, 10>(gen) < crossoverRate)
             {
@@ -69,11 +72,11 @@ void EvolutionSolver::solve(const std::vector<Activity>& tasks, int numTasks, in
                 if (std::generate_canonical<double, 10>(gen) < mutationRate)
                     mutateSwap(child2);
 
-                std::cout << "    Potomek 1: ";
-                for (int gene : child1) std::cout << gene << " ";
-                std::cout << "\n    Potomek 2: ";
-                for (int gene : child2) std::cout << gene << " ";
-                std::cout << "\n" << std::endl;
+               // std::cout << "    Potomek 1: ";
+              //  for (int gene : child1) std::cout << gene << " ";
+               // std::cout << "\n    Potomek 2: ";
+               // for (int gene : child2) std::cout << gene << " ";
+                //std::cout << "\n" << std::endl;
 
                 newPopulation.push_back(child1);
                 if (newPopulation.size() < populationSize)
@@ -240,18 +243,18 @@ EvolutionSolver::crossoverOX(const Chromosome& parent1, const Chromosome& parent
     }
 
     // 🔍 Debug output:
-    std::cout << "OX crossover:\n";
-    std::cout << "Parent1: ";
-    for (int gene : parent1) std::cout << gene << " ";
-    std::cout << "\nParent2: ";
-    for (int gene : parent2) std::cout << gene << " ";
-    std::cout << "\nStart: " << start << ", End: " << end << "\n";
+   // std::cout << "OX crossover:\n";
+   // std::cout << "Parent1: ";
+   // for (int gene : parent1) std::cout << gene << " ";
+   // std::cout << "\nParent2: ";
+   // for (int gene : parent2) std::cout << gene << " ";
+   // std::cout << "\nStart: " << start << ", End: " << end << "\n";
 
-    std::cout << "Child1:  ";
-    for (int gene : child1) std::cout << gene << " ";
-    std::cout << "\nChild2:  ";
-    for (int gene : child2) std::cout << gene << " ";
-    std::cout << "\n----------------------------------------\n";
+    //std::cout << "Child1:  ";
+   // for (int gene : child1) std::cout << gene << " ";
+   // std::cout << "\nChild2:  ";
+   // for (int gene : child2) std::cout << gene << " ";
+  //  std::cout << "\n----------------------------------------\n";
 
     return {child1, child2};
 }
@@ -260,11 +263,21 @@ EvolutionSolver::crossoverOX(const Chromosome& parent1, const Chromosome& parent
 void EvolutionSolver::mutateSwap(Chromosome& chromosome)
 {
     std::mt19937 gen(std::random_device{}());
-    int i = gen() % chromosome.size();
-    int j = gen() % chromosome.size();
-    std::swap(chromosome[i], chromosome[j]);
-}
+    std::uniform_real_distribution<> probDist(0.0, 1.0);
+    std::uniform_int_distribution<> geneDist(0, (int)chromosome.size() - 1);
 
+    for (int i = 0; i < (int)chromosome.size(); ++i)
+    {
+        if (probDist(gen) < mutationRate)
+        {
+            int j = geneDist(gen);
+            if (i != j)
+            {
+                std::swap(chromosome[i], chromosome[j]);
+            }
+        }
+    }
+}
 EvolutionSolver::Chromosome EvolutionSolver::tournamentSelection(const std::vector<Chromosome>& population, const std::vector<int>& fitness)
 {
     std::mt19937 gen(std::random_device{}());
