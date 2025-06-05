@@ -366,5 +366,3 @@ void zapiszZadaniaDoCSV(const std::vector<Activity>& zadania, const std::string&
 
     out.close();
 }
-
-
