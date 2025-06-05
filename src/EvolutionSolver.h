@@ -1,4 +1,4 @@
-#ifndef EVOLUTIONSOLVER_H
+/*#ifndef EVOLUTIONSOLVER_H
 #define EVOLUTIONSOLVER_H
 
 #include "OperationSchedule.h"
@@ -39,3 +39,4 @@ Individual turniej(const std::vector<Individual>& populacja, int tourSize, std::
 };
 
 #endif // EVOLUTIONSOLVER_H
+*/

@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <numeric>
 #include <cmath> // dla exp()
+#include "ScheduleBuilder.h"
+
 
 // Konstruktor: ustawiamy wszystkie parametry
 SimulatedAnnealingSolver::SimulatedAnnealingSolver(double startTemp, double endTemp, double coolingRate, int maxIter)
@@ -13,175 +15,89 @@ SimulatedAnnealingSolver::SimulatedAnnealingSolver(double startTemp, double endT
     makespan = 0;
 }
 
-void SimulatedAnnealingSolver::solve(const std::vector<Activity>& zadaniaWejscie, int liczbaZadan, int liczbaZasobow, const std::vector<int>& pojemnosci)
+void SimulatedAnnealingSolver::solve(const std::vector<Activity>& zadaniaWejscie,
+                                     int liczbaZadan,
+                                     int liczbaZasobow,
+                                     const std::vector<int>& pojemnosci)
 {
     std::mt19937 gen(std::random_device{}());
-    makespan = 0;
-    kosztyIteracji.clear();
-    historiaCurrent.clear();
-    historiaBestSoFar.clear();
-    avgIteracji.clear();
-    worstIteracji.clear();
-
-    // Losowa permutacja priorytetów
     std::vector<int> aktualnyGenotyp(liczbaZadan);
-    for (int i = 0; i < liczbaZadan; ++i) aktualnyGenotyp[i] = i;
+    std::iota(aktualnyGenotyp.begin(), aktualnyGenotyp.end(), 0);
     std::shuffle(aktualnyGenotyp.begin(), aktualnyGenotyp.end(), gen);
 
-    std::vector<Activity> aktualnyHarmonogram = generujHarmonogram(aktualnyGenotyp, zadaniaWejscie, liczbaZadan, liczbaZasobow, pojemnosci);
-    int aktualnyKoszt = obliczMakespan(aktualnyHarmonogram);
+    int sumaTrwania = 0;
+    for (const auto& z : zadaniaWejscie) sumaTrwania += z.duration;
+    int maxCzas = sumaTrwania + 50;
+
+    std::vector<std::vector<int>> buforZuzycia(maxCzas, std::vector<int>(liczbaZasobow, 0));
+    std::vector<Activity> harmonogramBufor;
+
+    ScheduleBuilder::zbudujZPriorytetami(aktualnyGenotyp, zadaniaWejscie,
+        liczbaZadan, liczbaZasobow, pojemnosci, buforZuzycia, harmonogramBufor);
+    int aktualnyKoszt = obliczMakespan(harmonogramBufor);
 
     std::vector<int> najlepszyGenotyp = aktualnyGenotyp;
-    std::vector<Activity> najlepszyHarmonogram = aktualnyHarmonogram;
     int najlepszyKoszt = aktualnyKoszt;
 
-    double T = temperaturaStartowa;
-    int iteracja = 0;
-    std::uniform_int_distribution<> dist(0, liczbaZadan - 1);
+    double temperatura = temperaturaStartowa;
 
-    while (T > temperaturaKoncowa && iteracja < maksLiczbaIteracji)
+    kosztyIteracji.clear();
+    historiaBestSoFar.clear();
+    historiaCurrent.clear();
+
+    for (int iter = 0; iter < maksLiczbaIteracji; ++iter)
     {
         std::vector<int> nowyGenotyp = aktualnyGenotyp;
-        int i = dist(gen), j = dist(gen);
-        while (i == j) j = dist(gen);
+        int i = gen() % liczbaZadan;
+        int j = gen() % liczbaZadan;
         std::swap(nowyGenotyp[i], nowyGenotyp[j]);
 
-        std::vector<Activity> nowyHarmonogram = generujHarmonogram(nowyGenotyp, zadaniaWejscie, liczbaZadan, liczbaZasobow, pojemnosci);
-        int nowyKoszt = obliczMakespan(nowyHarmonogram);
-        int delta = nowyKoszt - aktualnyKoszt;
+        std::vector<std::vector<int>> lokalnyBufor(maxCzas, std::vector<int>(liczbaZasobow, 0));
+        std::vector<Activity> lokalnyHarmonogram;
+        ScheduleBuilder::zbudujZPriorytetami(nowyGenotyp, zadaniaWejscie,
+            liczbaZadan, liczbaZasobow, pojemnosci, lokalnyBufor, lokalnyHarmonogram);
+        int nowyKoszt = obliczMakespan(lokalnyHarmonogram);
 
-        if (delta < 0 || (std::exp(-delta / T) > ((double)rand() / RAND_MAX)))
+        int delta = nowyKoszt - aktualnyKoszt;
+        bool akceptuj = false;
+
+        if (delta < 0)
         {
-            aktualnyGenotyp = nowyGenotyp;
-            aktualnyHarmonogram = nowyHarmonogram;
-            aktualnyKoszt = nowyKoszt;
+            akceptuj = true;
+        }
+        else
+        {
+            double prawdopodobienstwo = std::exp(-delta / temperatura);
+            std::uniform_real_distribution<> dis(0.0, 1.0);
+            if (dis(gen) < prawdopodobienstwo)
+                akceptuj = true;
         }
 
-        if (aktualnyKoszt < najlepszyKoszt)
+        if (akceptuj)
         {
-            najlepszyKoszt = aktualnyKoszt;
-            najlepszyGenotyp = aktualnyGenotyp;
-            najlepszyHarmonogram = aktualnyHarmonogram;
+            aktualnyGenotyp = nowyGenotyp;
+            aktualnyKoszt = nowyKoszt;
+            if (nowyKoszt < najlepszyKoszt)
+            {
+                najlepszyGenotyp = nowyGenotyp;
+                najlepszyKoszt = nowyKoszt;
+            }
         }
 
         kosztyIteracji.push_back(aktualnyKoszt);
         historiaCurrent.push_back(aktualnyKoszt);
         historiaBestSoFar.push_back(najlepszyKoszt);
 
-        int suma = 0, najgorszy = aktualnyKoszt;
-        for (int k = 0; k < kosztyIteracji.size(); ++k)
-        {
-            suma += kosztyIteracji[k];
-            if (kosztyIteracji[k] > najgorszy)
-                najgorszy = kosztyIteracji[k];
-        }
-        double avg = static_cast<double>(suma) / kosztyIteracji.size();
-        avgIteracji.push_back(avg);
-        worstIteracji.push_back(najgorszy);
+        temperatura *= wspolczynnikChlodzenia;
 
-        T *= wspolczynnikChlodzenia;
-        iteracja++;
+        if (iter % 100 == 0)
+            std::cout << "[Iteracja " << iter << "] makespan = " << aktualnyKoszt
+            << " (best = " << najlepszyKoszt << ")\n";
     }
 
+    ScheduleBuilder::zbudujZPriorytetami(najlepszyGenotyp, zadaniaWejscie,
+        liczbaZadan, liczbaZasobow, pojemnosci, buforZuzycia, schedule);
     makespan = najlepszyKoszt;
-    schedule = najlepszyHarmonogram;
-}
-
-std::vector<Activity> generujHarmonogram(
-    const std::vector<int>& priorytety,
-    const std::vector<Activity>& zadaniaWejscie,
-    int liczbaZadan,
-    int liczbaZasobow,
-    const std::vector<int>& pojemnosci)
-{
-    std::vector<Activity> zadania = zadaniaWejscie;
-    std::vector<int> priorytetZadan(liczbaZadan);
-    for (int i = 0; i < liczbaZadan; ++i)
-        priorytetZadan[priorytety[i]] = i;
-
-    std::vector<bool> zaplanowane(liczbaZadan, false);
-    std::vector<Activity> zaplanowaneZadania;
-
-    // Ustal maksymalny horyzont czasowy (np. 2x suma czasów trwania)
-    int maxCzas = 0;
-    for (const auto& z : zadania) maxCzas += z.duration;
-    maxCzas *= 2;
-
-    // Macierz zużycia zasobów: czas × zasób
-    std::vector<std::vector<int>> zuzycie(maxCzas, std::vector<int>(liczbaZasobow, 0));
-
-    int zaplanowaneLicznik = 0;
-    while (zaplanowaneLicznik < liczbaZadan)
-    {
-        std::vector<int> eligible;
-        for (int i = 0; i < liczbaZadan; ++i)
-        {
-            if (zaplanowane[i]) continue;
-
-            bool ok = true;
-            for (int p : zadania[i].predecessors)
-                if (!zaplanowane[p]) {
-                    ok = false;
-                    break;
-                }
-
-            if (ok) eligible.push_back(i);
-        }
-
-        std::sort(eligible.begin(), eligible.end(), [&](int a, int b) {
-            return priorytetZadan[a] < priorytetZadan[b];
-        });
-
-        for (int i : eligible)
-        {
-            const Activity& zad = zadania[i];
-            int earliestStart = 0;
-
-            // najwcześniejszy moment startu ze względu na poprzedników
-            for (int p : zad.predecessors)
-                if (zadania[p].end_time > earliestStart)
-                    earliestStart = zadania[p].end_time;
-
-            // Szukamy pierwszego możliwego czasu startu z dostępnością zasobów
-            for (int t = earliestStart; t < maxCzas; ++t)
-            {
-                bool zasobyOk = true;
-                for (int dt = 0; dt < zad.duration; ++dt)
-                {
-                    int czas = t + dt;
-                    for (int r = 0; r < liczbaZasobow; ++r)
-                    {
-                        if (zuzycie[czas][r] + zad.resourceRequirements[r] > pojemnosci[r])
-                        {
-                            zasobyOk = false;
-                            break;
-                        }
-                    }
-                    if (!zasobyOk) break;
-                }
-
-                if (zasobyOk)
-                {
-                    // Rezerwujemy zasoby
-                    for (int dt = 0; dt < zad.duration; ++dt)
-                    {
-                        int czas = t + dt;
-                        for (int r = 0; r < liczbaZasobow; ++r)
-                            zuzycie[czas][r] += zad.resourceRequirements[r];
-                    }
-
-                    zadania[i].start_time = t;
-                    zadania[i].end_time = t + zad.duration;
-                    zaplanowane[i] = true;
-                    zaplanowaneZadania.push_back(zadania[i]);
-                    zaplanowaneLicznik++;
-                    break;
-                }
-            }
-        }
-    }
-
-    return zadania;
 }
 
 
@@ -228,8 +144,6 @@ void SimulatedAnnealingSolver::zapiszDoCSV(const std::string& nazwaPliku) const
 
     out.close();
 }
-
-
 
 
 void SimulatedAnnealingSolver::zapiszStatystykiDoCSV(const std::string& nazwaPliku, int run) const
