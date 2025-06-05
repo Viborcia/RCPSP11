@@ -24,6 +24,8 @@ public:
     void zapiszBestVsCurrentCSV(const std::string& nazwaPliku) const;
     void zapiszKosztyNajlepszegoRunCSV(const std::string& nazwaPliku) const;
     const std::vector<Activity>& getSchedule() const { return schedule; }
+    
+
 
 
 private:
@@ -39,15 +41,9 @@ private:
     std::vector<double> avgIteracji;
     std::vector<int> worstIteracji;
 
-    // Funkcje pomocnicze (jako metody prywatne)
-    std::vector<Activity> zbudujHarmonogramZPriorytetami(
-        const std::vector<int>& priorytety,
-        const std::vector<Activity>& zadaniaWejscie,
-        int liczbaZadan,
-        int liczbaZasobow,
-        const std::vector<int>& pojemnosci);
-
     int obliczMakespan(const std::vector<Activity>& harmonogram) const;
 };
 
 #endif
+
+void zapiszZadaniaDoCSV(const std::vector<Activity>& zadania, const std::string& nazwaPliku);

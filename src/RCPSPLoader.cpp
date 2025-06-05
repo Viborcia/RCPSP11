@@ -114,9 +114,6 @@ bool RCPSPLoader::wczytajZPliku(const std::string& sciezka) {
 }
 
 
-
-
-
 void RCPSPLoader::wypisz() const {
     std::cout << "Liczba zadan: " << liczbaZadan << ", Liczba zasobow: " << liczbaZasobow << "\n";
     std::cout << "Pojemnosci zasobow: ";
