@@ -3,9 +3,9 @@
 #include "TabuSearchSolver.h"
 #include "SimulatedAnnealingSolver.h"
 #include "GreedySolver.h"
+#include "EvolutionSolver.h"
 
 #include <chrono>
-//#include "EvolutionSolver.h"
 #include <iostream>
 #include <fstream>
 using namespace std;
@@ -211,21 +211,41 @@ std::chrono::duration<double> elapsedSA = stopSA - startSA;
 std::cout << "[SimulatedAnnealing] Czas wykonania: " << elapsedSA.count() << " sekund\n";
 
 
-/*
-  //===EVOLUTIONERY ALGORYTHIM===
-    auto startEA = std::chrono::high_resolution_clock::now();
+auto startEA = std::chrono::high_resolution_clock::now();
 
-   EvolutionSolver solverAE(100, 1000, 0.01, 0.7, 3); // populacja, pokolenia, mutacja, krzyżowanie, turniej
-    solverAE.solve(loader.operacje, loader.liczbaJobow, loader.liczbaMaszyn);
-   // solverAE.printSchedule();
-    //solverAE.zapiszDoCSV("harmonogram_evolution.csv");
-   
-   auto stopEA = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsedEA = stopEA - startEA;
-    std::cout << "[Algorytm EA] Czas wykonania: " << elapsedEA.count() << " sekund\n";
+int populacja = 500;
+int pokolenia = 1000;
+double prawdMutacji = 0.05;
+double prawdKrzyzowania = 0.7;
+int rozmiarTurnieju = 3;
 
-*/
+int najlepszyRunEA = -1;
+int najlepszyKosztEA = std::numeric_limits<int>::max();
+EvolutionSolver najlepszyEA(populacja, pokolenia, prawdMutacji, prawdKrzyzowania, rozmiarTurnieju);
 
+for (int run = 0; run < liczbaUruchomien; ++run)
+{
+    EvolutionSolver solver(populacja, pokolenia, prawdMutacji, prawdKrzyzowania, rozmiarTurnieju);
+    solver.solve(loader.zadania, loader.liczbaZadan, loader.liczbaZasobow, loader.zasobyPojemnosc);
+    solver.zapiszStatystykiDoCSV("wyniki_evolution.csv", run);
+
+    if (solver.getMakespan() < najlepszyKosztEA)
+    {
+        najlepszyKosztEA = solver.getMakespan();
+        najlepszyRunEA = run;
+        najlepszyEA = solver;
+        najlepszyEA.zapiszWykorzystanieZasobow("zasoby_evolution.csv", loader.getLiczbaZasobow());
+    }
+}
+
+najlepszyEA.zapiszDoCSV("harmonogram_evolution.csv");
+
+std::cout << "Najlepszy EVOLUTION run: #" << najlepszyRunEA << "\n";
+std::cout << "Koszt (makespan): " << najlepszyKosztEA << "\n";
+
+auto stopEA = std::chrono::high_resolution_clock::now();
+std::chrono::duration<double> elapsedEA = stopEA - startEA;
+std::cout << "[EvolutionSolver] Czas wykonania: " << elapsedEA.count() << " sekund\n";
 
 auto stopwsio = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsedwsio = stopwsio - startwsio;

@@ -1,292 +1,438 @@
-/*#include "EvolutionSolver.h"
-#include <random>
+#include "EvolutionSolver.h"
 #include <algorithm>
-#include <limits>
-#include <iostream>
+#include <random>
 #include <numeric>
+#include <iostream>
 #include <fstream>
-#include <utility>
+#include <map>
 
-EvolutionSolver::EvolutionSolver(int populacja, int pokolenia, double prawdopodobMutacji, double prawdopodobKrzyzowania, int tourSize)
-    : rozmiarPopulacji(populacja),
-      liczbaPokolen(pokolenia),
-      prawdopodobienstwoMutacji(prawdopodobMutacji),
-      prawdopodobienstwoKrzyzowania(prawdopodobKrzyzowania),
-      tourSize(tourSize),
-      najlepszyMakespan(std::numeric_limits<int>::max()),
-      liczbaJobow(0),
-      liczbaMaszyn(0) {}
-
-void EvolutionSolver::solve(const std::vector<OperationSchedule>& operacje, int lj, int lm) {
-     std::mt19937 gen(std::random_device{}());
-    std::ofstream plik("ewolucyjny.csv");
-plik << "Pokolenie;Populacja;Fitness;Priorytety\n";
-    liczbaJobow = lj;
-    liczbaMaszyn = lm;
-    int liczbaOperacji = operacje.size();
-
-    // === Inicjalizacja populacji ===
-    populacja.clear();
-    for (int i = 0; i < rozmiarPopulacji; ++i) {
-        Individual individual = stworzLosowyOsobnik(liczbaOperacji);
-        individual.fitness = ocenOsobnik(individual, operacje);
-        populacja.push_back(individual);
-    }
-
-    for (int epoka = 0; epoka < liczbaPokolen; ++epoka) {
-       // std::cout << "\n--- Epoka " << epoka + 1 << " ---\n";
-        std::vector<Individual> nowaPopulacja;
-
-        while ((int)nowaPopulacja.size() < rozmiarPopulacji) {
-            Individual r1 = turniej(populacja, tourSize, gen);
-            Individual r2 = turniej(populacja, tourSize, gen);
-          //  std::cout << "Turniej: r1.fitness = " << r1.fitness << ", r2.fitness = " << r2.fitness << "\n";
-
-            std::uniform_real_distribution<> disProb(0.0, 1.0);
-            double probabilityCrossover = disProb(gen);
-            //std::cout << "Prawd krzyżowania: "<<probabilityCrossover<<"\n";
-            Individual child1 = r1;
-            Individual child2 = r2;
-
-            if (probabilityCrossover < prawdopodobienstwoKrzyzowania) {
-                 std::pair<Individual, Individual> children = krzyzowanieOX(r1, r2, gen);
-                //  std::cout << "Krzyżowanie wykonane:\n";
-                 //   std::cout << "  Rodzic 1: ";
-              //  for (int g : r1.priorytety) std::cout << g << " ";
-                //std::cout << "\n  Rodzic 2: ";
-               // for (int g : r2.priorytety) std::cout << g << " ";
-               // std::cout << "\n";
-                 child1 = children.first;
-                child2 = children.second;
-               
-               // std::cout << "  Dziecko 1: ";
-                //for (int g : child1.priorytety) std::cout << g << " ";
-              //  std::cout << "\n  Dziecko 2: ";
-               // for (int g : child2.priorytety) std::cout << g << " ";
-               // std::cout << "\n";
-            }
-            double probabilityMutation = disProb(gen);
-           // std::cout << "Prawd mutacji: "<<probabilityMutation<<"\n";
-            if (probabilityMutation < prawdopodobienstwoMutacji) mutacjaSwap(child1);
-            if (probabilityMutation < prawdopodobienstwoMutacji) mutacjaSwap(child2);
-           //  for (int g : child1.priorytety) std::cout << g << " ";
-            //    std::cout << "\n  Dziecko 2: ";
-          //  for (int g : child2.priorytety) std::cout << g << " ";
-          //      std::cout << "\n";
-            child1.fitness = ocenOsobnik(child1, operacje);
-            child2.fitness = ocenOsobnik(child2, operacje);
-                 //       std::cout << "Fitness dzieci: child1 = " << child1.fitness << ", child2 = " << child2.fitness << "\n";
-
-
-            nowaPopulacja.push_back(child1); 
-            nowaPopulacja.push_back(child2);
+EvolutionSolver::EvolutionSolver(int populationSize, int generations, double crossoverRate, double mutationRate, int tournamentSize)
+    : populationSize(populationSize), generations(generations), crossoverRate(crossoverRate), mutationRate(mutationRate), tournamentSize(tournamentSize), bestMakespan(INT_MAX)
+{
 }
 
-
-        // Dopisz dane do pliku CSV
-    for (size_t i = 0; i < nowaPopulacja.size(); ++i) {
-        plik << epoka + 1 << ";" << i << ";" << nowaPopulacja[i].fitness << ";";
-        for (size_t j = 0; j < nowaPopulacja[i].priorytety.size(); ++j) {
-            plik << nowaPopulacja[i].priorytety[j];
-            if (j < nowaPopulacja[i].priorytety.size() - 1) plik << "-";
-        }
-        plik << "\n";
-    }
-
-        populacja = nowaPopulacja;
-
-        for (const auto& individual : populacja) {
-            if (individual.fitness < najlepszyMakespan) {
-                najlepszyMakespan = individual.fitness;
-                najlepszyHarmonogram = budujHarmonogram(individual, operacje);
-            //    std::cout << "Pokolenie " << epoka + 1 << ": nowy najlepszy makespan = " << najlepszyMakespan << "\n";
-            }
-        }
-    }
-}
-
-EvolutionSolver::Individual EvolutionSolver::stworzLosowyOsobnik(int liczbaOperacji) {
-    Individual individual;
-    individual.priorytety.resize(liczbaOperacji);
-    //std::iota(individual.priorytety.begin(), individual.priorytety.end(), 0);
-    for (int i = 0; i < (int)individual.priorytety.size(); ++i) {
-    individual.priorytety[i] = i;
-}
+void EvolutionSolver::solve(const std::vector<Activity>& tasks, int numTasks, int numResources, const std::vector<int>& resourceCapacities)
+{
     std::mt19937 gen(std::random_device{}());
-    std::shuffle(individual.priorytety.begin(), individual.priorytety.end(), gen);
-    return individual;
+
+    std::vector<Chromosome> population;
+for (int i = 0; i < populationSize; ++i)
+{
+    Chromosome c;
+    for (int j = 0; j < numTasks; ++j)
+        c.push_back(j);
+
+    std::shuffle(c.begin(), c.end(), gen);
+    population.push_back(c);
 }
 
-int EvolutionSolver::ocenOsobnik(Individual& individual, const std::vector<OperationSchedule>& operacje) {
-    std::vector<OperationSchedule> kandydujace = operacje;
-    for (int i = 0; i < (int)individual.priorytety.size(); ++i) {
-        kandydujace[i].priority = individual.priorytety[i];
-    }
 
-    auto harmonogram = budujHarmonogram(individual, kandydujace);
-    int maks = 0;
-    for (const auto& o : harmonogram) {
-        if (o.end_time > maks) maks = o.end_time;
-    }
-    return maks;
-}
+    std::vector<int> fitness(populationSize);
 
-EvolutionSolver::Individual EvolutionSolver::turniej(const std::vector<Individual>& populacja, int tourSize, std::mt19937& gen) {
-    std::uniform_int_distribution<> dist(0, (int)populacja.size() - 1);
-    Individual best = populacja[dist(gen)];
+    for (int g = 0; g < generations; ++g)
+    {
+        //std::cout << "Generacja: " << g << std::endl;
 
-    for (int i = 1; i < tourSize; ++i) {
-        Individual kandydat = populacja[dist(gen)];
-        if (kandydat.fitness < best.fitness)
-            best = kandydat;
-    }
+        for (int i = 0; i < populationSize; ++i)
+        {
+            std::vector<Activity> schedule;
+            fitness[i] = evaluate(population[i], tasks, numResources, resourceCapacities, schedule);
 
-    return best;
-}
-
-void EvolutionSolver::mutacjaSwap(Individual& individual) {
-    std::mt19937 gen(std::random_device{}());
-    std::uniform_real_distribution<> probDist(0.0, 1.0);
-    std::uniform_int_distribution<> geneDist(0, (int)individual.priorytety.size() - 1);
-
-    for (int i = 0; i < (int)individual.priorytety.size(); ++i) {
-        if (probDist(gen) < prawdopodobienstwoMutacji) {
-            int j = geneDist(gen);
-            if (i != j) {
-                std::swap(individual.priorytety[i], individual.priorytety[j]);
+            if (fitness[i] < bestMakespan)
+            {
+                bestMakespan = fitness[i];
+                bestSchedule = schedule;
+                //std::cout << "  Nowy najlepszy makespan: " << bestMakespan << " w generacji " << g << std::endl;
             }
         }
-    }
+    int bestInGeneration = *std::min_element(fitness.begin(), fitness.end());
+
+       // std::cout << "  Najlepszy fitness w tej generacji: " << *std::min_element(fitness.begin(), fitness.end()) << std::endl;
+            kosztyPokolen.push_back(bestInGeneration);
+
+        std::vector<Chromosome> newPopulation;
+
+        while (newPopulation.size() < populationSize)
+        {
+            Chromosome parent1 = tournamentSelection(population, fitness);
+            Chromosome parent2 = tournamentSelection(population, fitness);
+
+            //std::cout << "    Rodzic 1: ";
+          //  for (int gene : parent1) std::cout << gene << " ";
+          //  std::cout << "\n    Rodzic 2: ";
+          //  for (int gene : parent2) std::cout << gene << " ";
+           // std::cout << std::endl;
+
+            if (std::generate_canonical<double, 10>(gen) < crossoverRate)
+            {
+                auto [child1, child2] = crossoverOX(parent1, parent2);
+
+              //  if (std::generate_canonical<double, 10>(gen) < mutationRate)
+                    mutateSwap(child1);
+                //if (std::generate_canonical<double, 10>(gen) < mutationRate)
+                    mutateSwap(child2);
+
+               // std::cout << "    Potomek 1: ";
+              //  for (int gene : child1) std::cout << gene << " ";
+               // std::cout << "\n    Potomek 2: ";
+               // for (int gene : child2) std::cout << gene << " ";
+                //std::cout << "\n" << std::endl;
+
+                newPopulation.push_back(child1);
+                if (newPopulation.size() < populationSize)
+                    newPopulation.push_back(child2); // dopiero jeśli jest miejsce
+            }
+            else
+            {
+                // Brak krzyżowania – kopiujemy rodzica
+                newPopulation.push_back(parent1);
+            }
+        }
+        // Na końcu pętli generacji
+int bestFit = *std::min_element(fitness.begin(), fitness.end());
+int avgFit = std::accumulate(fitness.begin(), fitness.end(), 0.0) / fitness.size();
+int worstFit = *std::max_element(fitness.begin(), fitness.end());
+
+std::ofstream out("statystyki_generacji.csv", std::ios::app);
+if (out.is_open()) {
+    if (g == 0)  // nagłówek tylko raz
+        out << "generacja;best;average;worst\n";
+    out << g << ";" << bestFit << ";" << avgFit << ";" << worstFit << "\n";
+    out.close();
 }
 
 
-std::pair<EvolutionSolver::Individual, EvolutionSolver::Individual>
-EvolutionSolver::krzyzowanieOX(const Individual& p1, const Individual& p2, std::mt19937& gen) {
-    int n = (int)p1.priorytety.size();
-    std::uniform_int_distribution<> dist(0, n - 1);
-    int start = dist(gen), end = dist(gen);
-    if (start > end) std::swap(start, end);
+        population = newPopulation;
 
-   // std::cout << "Rozmiar: " << n << "\n";
-   // std::cout << "Zakres krzyżowania: start=" << start << ", end=" << end << "\n";
-   // std::cout << "Rodzic 1: ";
-   // for (int x : p1.priorytety) std::cout << x << " ";
-   // std::cout << "\nRodzic 2: ";
-   // for (int x : p2.priorytety) std::cout << x << " ";
-   // std::cout << "\n";
-
-    // Dziecko 1: segment od p1, reszta z p2
-    Individual child1;
-    child1.priorytety = std::vector<int>(n, -1);
-    for (int i = start; i <= end; ++i)
-        child1.priorytety[i] = p1.priorytety[i];
-    
-  //  std::cout << "Child1 po skopiowaniu segmentu: ";
-   // for (int x : child1.priorytety) std::cout << x << " ";
-   // std::cout << "\n";
-
-    int index1 = (end + 1) % n;
-    for (int i = 0; i < n; ++i) {
-        int val = p2.priorytety[(end + 1 + i) % n];
-        if (std::find(child1.priorytety.begin(), child1.priorytety.end(), val) == child1.priorytety.end()) {
-            child1.priorytety[index1] = val;
-           // std::cout << "Dodano " << val << " do child1 na pozycję " << index1 << "\n";
-            index1 = (index1 + 1) % n;
-        }
     }
-
-    //std::cout << "Child1 końcowy: ";
-   // for (int x : child1.priorytety) std::cout << x << " ";
-   // std::cout << "\n";
-
-    // Dziecko 2: segment od p2, reszta z p1
-    Individual child2;
-    child2.priorytety = std::vector<int>(n, -1);
-    for (int i = start; i <= end; ++i)
-        child2.priorytety[i] = p2.priorytety[i];
-
-   // std::cout << "Child2 po skopiowaniu segmentu: ";
-   // for (int x : child2.priorytety) std::cout << x << " ";
-   // std::cout << "\n";   
-        
-    int index2 = (end + 1) % n;
-    for (int i = 0; i < n; ++i) {
-        int val = p1.priorytety[(end + 1 + i) % n];
-        if (std::find(child2.priorytety.begin(), child2.priorytety.end(), val) == child2.priorytety.end()) {
-            child2.priorytety[index2] = val;
-      //      std::cout << "Dodano " << val << " do child2 na pozycję " << index2 << "\n";
-            index2 = (index2 + 1) % n;
-        }
-    }
-
-   // std::cout << "Child2 końcowy: ";
-   // for (int x : child2.priorytety) std::cout << x << " ";
-   // std::cout << "\n";
-
-    return std::make_pair(child1, child2);
+    saveScheduleCSV("best_schedule.csv");
+    zapiszDoCSV("detailed_schedule.csv");
+    zapiszStatystykiDoCSV("statistics.csv", 1);  // np. 1 oznacza pierwsze uruchomienie
+    zapiszWykorzystanieZasobow("resource_usage.csv", numResources);
 }
 
-std::vector<OperationSchedule> EvolutionSolver::budujHarmonogram(const Individual& ch, const std::vector<OperationSchedule>& operacje) {
-    std::vector<OperationSchedule> kandydaci = operacje;
-    for (int i = 0; i < (int)ch.priorytety.size(); ++i) {
-        kandydaci[i].priority = ch.priorytety[i];
-        kandydaci[i].start_time = 0;
-        kandydaci[i].end_time = 0;
+
+int EvolutionSolver::evaluate(const Chromosome& chromosome, const std::vector<Activity>& tasksInput, int numResources, const std::vector<int>& resourceCapacities, std::vector<Activity>& outSchedule) const
+{
+    std::vector<Activity> tasks = tasksInput;
+    for (auto& task : tasks) {
+        task.start_time = -1;  // reset
+        task.end_time = -1;    // reset
     }
+    for (int i = 0; i < chromosome.size(); ++i)
+        tasks[chromosome[i]].priority = i;
 
-    std::sort(kandydaci.begin(), kandydaci.end(), [](const auto& a, const auto& b) {
-        return a.priority < b.priority;
-    });
+    std::vector<bool> scheduled(tasks.size(), false);
+    std::vector<int> resources = resourceCapacities;
+    outSchedule.clear();
 
-    std::vector<OperationSchedule> harmonogram;
-    std::vector<int> maszyna_wolna_od(liczbaMaszyn, 0);
-    std::vector<int> job_gotowy_od(liczbaJobow, 0);
-    std::vector<bool> czy_zrobione(kandydaci.size(), false);
+    int time = 0;
+    int count = 0;
 
-    while ((int)harmonogram.size() < (int)kandydaci.size()) {
-        for (int i = 0; i < (int)kandydaci.size(); ++i) {
-            if (czy_zrobione[i]) continue;
-            auto& op = kandydaci[i];
+    // Mapa: czas -> lista zadań kończących się w tym czasie
+    std::map<int, std::vector<int>> tasksEndingAt;
 
-            bool poprzedniaWykonana = (op.operation_id == 0);
-            if (!poprzedniaWykonana) {
-                for (int j = 0; j < (int)kandydaci.size(); ++j) {
-                    if (kandydaci[j].job_id == op.job_id &&
-                        kandydaci[j].operation_id == op.operation_id - 1 &&
-                        czy_zrobione[j]) {
-                        poprzedniaWykonana = true;
-                        break;
-                    }
+    while (count < tasks.size())
+    {
+        // Zwolnij zasoby zadań kończących się o aktualnym czasie
+        if (tasksEndingAt.count(time) > 0) {
+            for (int tid : tasksEndingAt[time]) {
+                for (int r = 0; r < numResources; ++r)
+                    resources[r] += tasks[tid].resourceRequirements[r];
+            }
+            tasksEndingAt.erase(time);
+        }
+
+        // Wybierz zadania gotowe do harmonogramowania
+        std::vector<int> eligible;
+        for (int i = 0; i < tasks.size(); ++i)
+        {
+            if (scheduled[i]) continue;
+            bool ready = true;
+            for (int pred : tasks[i].predecessors)
+                if (!scheduled[pred] || tasks[pred].end_time > time)
+                    ready = false;
+            if (ready)
+                eligible.push_back(i);
+        }
+
+        // Posortuj po priorytecie
+        std::sort(eligible.begin(), eligible.end(), [&](int a, int b) {
+            return tasks[a].priority < tasks[b].priority;
+        });
+
+        bool progress = false;
+        for (int i : eligible)
+        {
+            // Sprawdź dostępność zasobów
+            bool canSchedule = true;
+            for (int r = 0; r < numResources; ++r)
+            {
+                if (tasks[i].resourceRequirements[r] > resources[r])
+                {
+                    canSchedule = false;
+                    break;
                 }
             }
 
-            if (poprzedniaWykonana) {
-                int start = std::max(maszyna_wolna_od[op.machine_id], job_gotowy_od[op.job_id]);
-                op.start_time = start;
-                op.end_time = start + op.processing_time;
+            if (canSchedule)
+            {
+                tasks[i].start_time = time;
+                tasks[i].end_time = time + tasks[i].duration;
+                for (int r = 0; r < numResources; ++r)
+                    resources[r] -= tasks[i].resourceRequirements[r];
 
-                maszyna_wolna_od[op.machine_id] = op.end_time;
-                job_gotowy_od[op.job_id] = op.end_time;
+                scheduled[i] = true;
+                count++;
+                outSchedule.push_back(tasks[i]);
 
-                czy_zrobione[i] = true;
-                harmonogram.push_back(op);
+                // Zapamiętaj, kiedy zadanie się kończy, by zwolnić zasoby
+                tasksEndingAt[tasks[i].end_time].push_back(i);
+
+                progress = true;
             }
+        }
+
+        if (!progress)
+            time++;
+    }
+
+    // Oblicz maksymalny czas zakończenia (makespan)
+    int localMakespan = 0;
+    for (const auto& task : outSchedule)
+        localMakespan = std::max(localMakespan, task.end_time);
+
+    return localMakespan;
+}
+std::pair<EvolutionSolver::Chromosome, EvolutionSolver::Chromosome>
+EvolutionSolver::crossoverOX(const Chromosome& parent1, const Chromosome& parent2)
+{
+    std::mt19937 gen(std::random_device{}());
+    int size = parent1.size();
+    int start = gen() % size;
+    int end = gen() % size;
+    if (start > end) std::swap(start, end);
+
+    Chromosome child1(size, -1);
+    Chromosome child2(size, -1);
+
+    // 1. Przepisz segment środkowy z odpowiedniego rodzica
+    for (int i = start; i <= end; ++i) {
+        child1[i] = parent1[i];
+        child2[i] = parent2[i];
+    }
+
+    // 2. Uzupełnij child1 z parent2
+    int cur1 = (end + 1) % size;
+    for (int i = 0; i < size; ++i) {
+        int idx = (end + 1 + i) % size;
+        if (std::find(child1.begin(), child1.end(), parent2[idx]) == child1.end()) {
+            child1[cur1] = parent2[idx];
+            cur1 = (cur1 + 1) % size;
         }
     }
 
-    return harmonogram;
+    // 3. Uzupełnij child2 z parent1
+    int cur2 = (end + 1) % size;
+    for (int i = 0; i < size; ++i) {
+        int idx = (end + 1 + i) % size;
+        if (std::find(child2.begin(), child2.end(), parent1[idx]) == child2.end()) {
+            child2[cur2] = parent1[idx];
+            cur2 = (cur2 + 1) % size;
+        }
+    }
+
+    // 🔍 Debug output:
+   // std::cout << "OX crossover:\n";
+   // std::cout << "Parent1: ";
+   // for (int gene : parent1) std::cout << gene << " ";
+   // std::cout << "\nParent2: ";
+   // for (int gene : parent2) std::cout << gene << " ";
+   // std::cout << "\nStart: " << start << ", End: " << end << "\n";
+
+    //std::cout << "Child1:  ";
+   // for (int gene : child1) std::cout << gene << " ";
+   // std::cout << "\nChild2:  ";
+   // for (int gene : child2) std::cout << gene << " ";
+  //  std::cout << "\n----------------------------------------\n";
+
+    return {child1, child2};
 }
 
-void EvolutionSolver::printSchedule() const {
-    std::cout << "\n=== Najlepszy harmonogram (EvolutionSolver) ===\n";
-    std::cout << "Makespan: " << najlepszyMakespan << "\n";
-    std::cout << "Job\tOpID\tMaszyna\tStart\tEnd\n";
-    for (const auto& op : najlepszyHarmonogram) {
-        std::cout << op.job_id << "\t"
-                  << op.operation_id << "\t"
-                  << op.machine_id << "\t"
-                  << op.start_time << "\t"
-                  << op.end_time << "\n";
+
+void EvolutionSolver::mutateSwap(Chromosome& chromosome)
+{
+    std::mt19937 gen(std::random_device{}());
+    std::uniform_real_distribution<> probDist(0.0, 1.0);
+    std::uniform_int_distribution<> geneDist(0, (int)chromosome.size() - 1);
+
+    for (int i = 0; i < (int)chromosome.size(); ++i)
+    {
+        if (probDist(gen) < mutationRate)
+        {
+            int j = geneDist(gen);
+            if (i != j)
+            {
+                std::swap(chromosome[i], chromosome[j]);
+            }
+        }
     }
 }
-*/
+EvolutionSolver::Chromosome EvolutionSolver::tournamentSelection(const std::vector<Chromosome>& population, const std::vector<int>& fitness)
+{
+    std::mt19937 gen(std::random_device{}());
+    Chromosome best;
+    int bestFit = INT_MAX;
+    for (int i = 0; i < tournamentSize; ++i)
+    {
+        int idx = gen() % population.size();
+        if (fitness[idx] < bestFit)
+        {
+            bestFit = fitness[idx];
+            best = population[idx];
+        }
+    }
+    return best;
+}
+
+void EvolutionSolver::printSchedule() const
+{
+    std::cout << "\n=== Najlepszy harmonogram (EvolutionSolver) ===\n";
+    std::cout << "Makespan: " << bestMakespan << "\n";
+    std::cout << "Operacje:\n";
+    std::cout << "ID\tPriorytet\tStart\tEnd\n";
+    for (const Activity& task : bestSchedule)
+    {
+        std::cout << task.id << "\t" << task.priority << "\t\t" << task.start_time << "\t" << task.end_time << "\n";
+    }
+}
+
+void EvolutionSolver::saveScheduleCSV(const std::string& filename) const
+{
+    std::ofstream out(filename);
+    if (!out.is_open()) {
+        std::cerr << "Nie można otworzyć pliku: " << filename << "\n";
+        return;
+    }
+    out << "job_id,start_time,end_time,duration,resources\n";
+    for (const auto& task : bestSchedule)
+    {
+        out << task.id << "," << task.start_time << "," << task.end_time << "," << task.duration << ",\"";
+        for (int i = 0; i < task.resourceRequirements.size(); ++i)
+        {
+            out << task.resourceRequirements[i];
+            if (i < task.resourceRequirements.size() - 1)
+                out << " ";
+        }
+        out << "\"\n";
+    }
+    out.close();
+}
+void EvolutionSolver::zapiszDoCSV(const std::string& nazwaPliku) const {
+    std::ofstream out(nazwaPliku);
+    if (!out.is_open()) {
+        std::cerr << "Nie można otworzyć pliku do zapisu: " << nazwaPliku << "\n";
+        return;
+    }
+
+    out << "job_id,start_time,end_time,duration,resources,predecessors,successors\n";
+    for (const Activity& task : bestSchedule) {  // <-- zmiana z schedule na bestSchedule
+        out << task.id << ","
+            << task.start_time << ","
+            << task.end_time << ","
+            << task.duration << ",\"";
+
+        for (int i = 0; i < task.resourceRequirements.size(); ++i) {
+            out << task.resourceRequirements[i];
+            if (i < task.resourceRequirements.size() - 1)
+                out << " ";
+        }
+
+        out << "\",\"";
+
+        for (int i = 0; i < task.predecessors.size(); ++i) {
+            out << task.predecessors[i];
+            if (i < task.predecessors.size() - 1)
+                out << " ";
+        }
+
+        out << "\",\"";
+
+        for (int i = 0; i < task.successors.size(); ++i) {
+            out << task.successors[i];
+            if (i < task.successors.size() - 1)
+                out << " ";
+        }
+
+        out << "\"\n";
+    }
+
+    out.close();
+}
+
+
+void EvolutionSolver::zapiszStatystykiDoCSV(const std::string& nazwaPliku, int run) const {
+    if (kosztyPokolen.empty()) {
+        std::cerr << "Brak danych do zapisania statystyk.\n";
+        return;
+    }
+
+    double best = *std::min_element(kosztyPokolen.begin(), kosztyPokolen.end());
+    double worst = *std::max_element(kosztyPokolen.begin(), kosztyPokolen.end());
+    double avg = std::accumulate(kosztyPokolen.begin(), kosztyPokolen.end(), 0.0) / kosztyPokolen.size();
+
+    int sciezka = obliczDlugoscSciezkiKrytycznej(bestSchedule);
+double avgDevCPM = 100.0 * (bestMakespan - sciezka) / (double)sciezka;
+
+    std::ofstream out;
+    bool istnieje = std::ifstream(nazwaPliku).good();
+    out.open(nazwaPliku, std::ios::app);
+
+    if (!out.is_open()) {
+        std::cerr << "Nie można otworzyć pliku do zapisu: " << nazwaPliku << "\n";
+        return;
+    }
+
+    if (!istnieje) {
+        out << "run;best;average;worst;critical_path;avgDevCPM\n";
+    }
+
+    out << run << ";" << best << ";" << avg << ";" << worst << ";" << sciezka << ";" << avgDevCPM << "\n";
+    out.close();
+}
+
+void EvolutionSolver::zapiszWykorzystanieZasobow(const std::string& nazwaPliku, int liczbaZasobow) const {
+    int maksCzas = 0;
+for (const Activity& z : bestSchedule)
+    if (z.end_time > maksCzas) maksCzas = z.end_time;
+
+std::vector<std::vector<int>> zuzycie(maksCzas + 1, std::vector<int>(liczbaZasobow, 0));
+
+for (const Activity& z : bestSchedule) {
+    for (int t = z.start_time; t < z.end_time; ++t) {
+        for (int r = 0; r < liczbaZasobow; ++r) {
+            zuzycie[t][r] += z.resourceRequirements[r];
+        }
+    }
+}
+
+    std::ofstream out(nazwaPliku);
+    if (!out.is_open()) {
+        std::cerr << "Nie można otworzyć pliku do zapisu: " << nazwaPliku << "\n";
+        return;
+    }
+
+    out << "czas";
+    for (int r = 0; r < liczbaZasobow; ++r)
+        out << ",R" << (r + 1);
+    out << "\n";
+
+    for (int t = 0; t <= maksCzas; ++t) {
+        out << t;
+        for (int r = 0; r < liczbaZasobow; ++r)
+            out << "," << zuzycie[t][r];
+        out << "\n";
+    }
+
+    out.close();
+}
