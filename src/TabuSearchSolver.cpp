@@ -1,196 +1,142 @@
 #include "TabuSearchSolver.h"
+#include "GreedySolver.h"
+#include "ScheduleBuilder.h"
 #include <iostream>
 #include <fstream>
 #include <random>
 #include <algorithm>
 #include <limits>
+#include <deque>
+#include <fstream>
 #include <numeric>
 #include <cmath>
+#include <set>
 
 TabuSearchSolver::TabuSearchSolver(int liczbaIteracji, int dlugoscTabu)
     : liczbaIteracji(liczbaIteracji), dlugoscTabu(dlugoscTabu), makespan(0)
 {}
 
 void TabuSearchSolver::solve(const std::vector<Activity>& zadaniaWejscie,
-                             int liczbaZadan,
-                             int liczbaZasobow,
-                             const std::vector<int>& pojemnosci)
-{
-    std::mt19937 gen(std::random_device{}());
-    std::uniform_int_distribution<> dist(0, liczbaZadan - 1);
-
-    std::vector<int> priorytety(liczbaZadan);
-    for (int i = 0; i < liczbaZadan; ++i) priorytety[i] = i;
-    std::shuffle(priorytety.begin(), priorytety.end(), gen);
-
-    std::vector<Activity> najlepszyHarmonogram = zbudujHarmonogramZPriorytetami(priorytety, zadaniaWejscie, liczbaZadan, liczbaZasobow, pojemnosci);
-    int najlepszyKoszt = obliczMakespan(najlepszyHarmonogram);
-
-    std::vector<std::pair<int, int>> tabuLista;
-    std::vector<Activity> aktualnyHarmonogram = najlepszyHarmonogram;
-    int bezPoprawy = 0;
-
-    for (int iter = 0; iter < liczbaIteracji; ++iter)
-    {
-        std::vector<int> najlepszySasiad = priorytety;
-        int najlepszySasiadKoszt = std::numeric_limits<int>::max();
-        bool znaleziono = false;
-        int najlepszyI = -1, najlepszyJ = -1;
-
-        for (int i = 0; i < liczbaZadan - 1; ++i)
-{
-    for (int j = i + 1; j < liczbaZadan; ++j)
-    {
-        std::vector<int> sasiad = priorytety;
-        std::swap(sasiad[i], sasiad[j]);
-
-        bool wTabu = std::find(tabuLista.begin(), tabuLista.end(), std::make_pair(i, j)) != tabuLista.end() ||
-                     std::find(tabuLista.begin(), tabuLista.end(), std::make_pair(j, i)) != tabuLista.end();
-
-        auto harmonogram = zbudujHarmonogramZPriorytetami(sasiad, zadaniaWejscie, liczbaZadan, liczbaZasobow, pojemnosci);
-        int koszt = obliczMakespan(harmonogram);
-
-        if (wTabu && koszt >= najlepszyKoszt)
-            continue;
-
-        if (koszt < najlepszySasiadKoszt)
-        {
-            najlepszySasiadKoszt = koszt;
-            najlepszySasiad = sasiad;
-            najlepszyI = i;
-            najlepszyJ = j;
-            znaleziono = true;
-        }
-    }
-}
-
-
-        if (!znaleziono)
-        {
-            std::shuffle(priorytety.begin(), priorytety.end(), gen);
-            bezPoprawy = 0;
-            tabuLista.clear();
-            continue;
-        }
-
-        // Aktualizacja permutacji i tabu
-        priorytety = najlepszySasiad;
-        if (najlepszyI != -1 && najlepszyJ != -1)
-            tabuLista.emplace_back(najlepszyI, najlepszyJ);
-        if ((int)tabuLista.size() > dlugoscTabu)
-            tabuLista.erase(tabuLista.begin());
-
-        aktualnyHarmonogram = zbudujHarmonogramZPriorytetami(priorytety, zadaniaWejscie, liczbaZadan, liczbaZasobow, pojemnosci);
-        int aktualnyKoszt = obliczMakespan(aktualnyHarmonogram);
-
-        kosztyIteracji.push_back(aktualnyKoszt);
-        historiaCurrent.push_back(aktualnyKoszt);
-        historiaBestSoFar.push_back(najlepszyKoszt);
-        avgIteracji.push_back(std::accumulate(kosztyIteracji.begin(), kosztyIteracji.end(), 0.0) / kosztyIteracji.size());
-        worstIteracji.push_back(*std::max_element(kosztyIteracji.begin(), kosztyIteracji.end()));
-
-        if (aktualnyKoszt < najlepszyKoszt)
-        {
-            najlepszyKoszt = aktualnyKoszt;
-            najlepszyHarmonogram = aktualnyHarmonogram;
-            bezPoprawy = 0;
-        }
-        else
-        {
-            bezPoprawy++;
-        }
-
-        if (bezPoprawy > 100)
-        {
-            std::shuffle(priorytety.begin(), priorytety.end(), gen);
-            bezPoprawy = 0;
-            tabuLista.clear();
-        }
-    }
-
-    makespan = najlepszyKoszt;
-    schedule = najlepszyHarmonogram;
-}
-
-
-std::vector<Activity> TabuSearchSolver::zbudujHarmonogramZPriorytetami(
-    const std::vector<int>& priorytety,
-    const std::vector<Activity>& zadaniaWejscie,
     int liczbaZadan,
     int liczbaZasobow,
     const std::vector<int>& pojemnosci)
 {
-    std::vector<Activity> zadania = zadaniaWejscie;
-    std::vector<int> priorytetZadan(liczbaZadan);
-    for (int i = 0; i < liczbaZadan; ++i)
-        priorytetZadan[priorytety[i]] = i;
+    std::mt19937 gen(std::random_device{}());
 
-    std::vector<Activity> harmonogram;
-    std::vector<bool> zaplanowane(liczbaZadan, false);
-    int zaplanowaneLicznik = 0;
+    int sumaTrwania = 0;
+    for (const auto& z : zadaniaWejscie) sumaTrwania += z.duration;
+    int maxCzas = sumaTrwania + 50;
 
-    int maxCzas = 0;
-    for (const auto& z : zadania) maxCzas += z.duration;
-    maxCzas *= 2;
+    std::vector<std::vector<int>> buforZuzycia(maxCzas, std::vector<int>(liczbaZasobow, 0));
+    std::vector<Activity> harmonogramBufor;
 
-    std::vector<std::vector<int>> zuzycie(maxCzas, std::vector<int>(liczbaZasobow, 0));
+    std::vector<int> current(liczbaZadan);
+    std::iota(current.begin(), current.end(), 0);
+    std::shuffle(current.begin(), current.end(), gen);
 
-    while (zaplanowaneLicznik < liczbaZadan)
+    ScheduleBuilder::zbudujZPriorytetami(current, zadaniaWejscie,
+        liczbaZadan, liczbaZasobow,
+        pojemnosci, buforZuzycia, harmonogramBufor);
+    int bestCost = obliczMakespan(harmonogramBufor);
+    std::vector<int> bestSoFar = current;
+
+    std::deque<std::pair<int, int>> tabuQueue;
+    std::set<std::pair<int, int>> tabuSet;
+    int bezPoprawy = 0;
+
+    for (int iter = 0; iter < liczbaIteracji; ++iter)
     {
-        std::vector<int> eligible;
-        for (int i = 0; i < liczbaZadan; ++i)
+        std::vector<int> bestNeighbor = current;
+        int bestNeighborCost = std::numeric_limits<int>::max();
+        std::pair<int, int> bestMove = { -1, -1 };
+
+        for (int k = 0; k < 500; ++k)
         {
-            if (zaplanowane[i]) continue;
+            int i = gen() % liczbaZadan;
+            int j = gen() % liczbaZadan;
+            if (i == j) continue;
 
-            bool ok = true;
-            for (int p : zadania[i].predecessors)
-                if (!zaplanowane[p]) { ok = false; break; }
+            std::vector<int> candidate = current;
+            std::swap(candidate[i], candidate[j]);
 
-            if (ok) eligible.push_back(i);
-        }
+            int koszt = INT_MAX;
+            try {
+                std::vector<Activity> tempBufor;
+                ScheduleBuilder::zbudujZPriorytetami(candidate, zadaniaWejscie,
+                    liczbaZadan, liczbaZasobow,
+                    pojemnosci, buforZuzycia, tempBufor);
+                if (!tempBufor.empty())
+                    koszt = obliczMakespan(tempBufor);
+            }
+            catch (...) {
+                continue;
+            }
 
-        std::sort(eligible.begin(), eligible.end(), [&](int a, int b) {
-            return priorytetZadan[a] < priorytetZadan[b];
-        });
+            if (koszt >= 1000000000) continue;
 
-        for (int i : eligible)
-        {
-            Activity& zad = zadania[i];
-            int earliestStart = 0;
+            std::pair<int, int> ruch = { std::min(i, j), std::max(i, j) };
+            if (tabuSet.count(ruch) && koszt >= bestCost) continue;
 
-            for (int p : zad.predecessors)
-                if (zadania[p].end_time > earliestStart)
-                    earliestStart = zadania[p].end_time;
-
-            for (int t = earliestStart; t < maxCzas; ++t)
-            {
-                bool zasobyOk = true;
-                for (int dt = 0; dt < zad.duration; ++dt)
-                {
-                    for (int r = 0; r < liczbaZasobow; ++r)
-                        if (zuzycie[t + dt][r] + zad.resourceRequirements[r] > pojemnosci[r])
-                            zasobyOk = false;
-                    if (!zasobyOk) break;
-                }
-
-                if (zasobyOk)
-                {
-                    for (int dt = 0; dt < zad.duration; ++dt)
-                        for (int r = 0; r < liczbaZasobow; ++r)
-                            zuzycie[t + dt][r] += zad.resourceRequirements[r];
-
-                    zad.start_time = t;
-                    zad.end_time = t + zad.duration;
-                    harmonogram.push_back(zad);
-                    zaplanowane[i] = true;
-                    zaplanowaneLicznik++;
-                    break;
-                }
+            if (koszt < bestNeighborCost) {
+                bestNeighbor = candidate;
+                bestNeighborCost = koszt;
+                bestMove = ruch;
             }
         }
+
+        if (bestNeighborCost < bestCost) {
+            bestSoFar = bestNeighbor;
+            bestCost = bestNeighborCost;
+            bezPoprawy = 0;
+        }
+        else {
+            bezPoprawy++;
+        }
+
+        current = bestNeighbor;
+
+        if (bestMove.first != -1) {
+            tabuQueue.push_back(bestMove);
+            tabuSet.insert(bestMove);
+            if ((int)tabuQueue.size() > dlugoscTabu) {
+                tabuSet.erase(tabuQueue.front());
+                tabuQueue.pop_front();
+            }
+        }
+
+        if (bezPoprawy >= 200) {
+            std::iota(current.begin(), current.end(), 0);
+            std::shuffle(current.begin(), current.end(), gen);
+
+            ScheduleBuilder::zbudujZPriorytetami(current, zadaniaWejscie,
+                liczbaZadan, liczbaZasobow,
+                pojemnosci, buforZuzycia, harmonogramBufor);
+            int kosztPoRestarcie = obliczMakespan(harmonogramBufor);
+            kosztyIteracji.push_back(kosztPoRestarcie);
+            historiaCurrent.push_back(kosztPoRestarcie);
+            historiaBestSoFar.push_back(bestCost);
+
+            bezPoprawy = 0;
+            tabuQueue.clear();
+            tabuSet.clear();
+
+            std::cout << "[Restart 200] Losowa permutacja\n";
+        }
+        else {
+            kosztyIteracji.push_back(bestNeighborCost);
+            historiaCurrent.push_back(bestNeighborCost);
+            historiaBestSoFar.push_back(bestCost);
+        }
+
+        if (iter % 100 == 0)
+            std::cout << "[Iteracja " << iter << "] makespan = " << bestNeighborCost
+            << " (best = " << bestCost << ")\n";
     }
 
-    return harmonogram;
+    ScheduleBuilder::zbudujZPriorytetami(bestSoFar, zadaniaWejscie,
+        liczbaZadan, liczbaZasobow,
+        pojemnosci, buforZuzycia, schedule);
+    makespan = bestCost;
 }
 
 int TabuSearchSolver::obliczMakespan(const std::vector<Activity>& harmonogram) const
@@ -222,14 +168,25 @@ void TabuSearchSolver::zapiszDoCSV(const std::string& nazwaPliku) const
         return;
     }
 
-    out << "job_id,start_time,end_time,duration\n";
+    // Nagłówki CSV
+    out << "job_id,start_time,end_time,duration,predecessors\n";
+
     for (const auto& z : schedule)
-        out << z.id << "," << z.start_time << "," << z.end_time << "," << z.duration << "\n";
+    {
+        out << z.id << "," << z.start_time << "," << z.end_time << "," << z.duration << ",";
+
+        for (size_t i = 0; i < z.predecessors.size(); ++i)
+        {
+            out << z.predecessors[i];
+            if (i < z.predecessors.size() - 1)
+                out << ";";
+        }
+
+        out << "\n";
+    }
 
     out.close();
 }
-
-// Pozostałe funkcje zapisu statystyk (takie jak w SA/RandomSolver) – chcesz, żebym je też teraz dodał?
 
 
 void TabuSearchSolver::zapiszStatystykiDoCSV(const std::string& nazwaPliku, int run) const
@@ -373,3 +330,41 @@ void TabuSearchSolver::zapiszWykorzystanieZasobow(const std::string& nazwaPliku,
 
     out.close();
 }
+
+
+#include <fstream>
+
+void zapiszZadaniaDoCSV(const std::vector<Activity>& zadania, const std::string& nazwaPliku)
+{
+    std::ofstream out(nazwaPliku);
+    if (!out.is_open())
+    {
+        std::cerr << "Nie można otworzyć pliku do zapisu: " << nazwaPliku << "\n";
+        return;
+    }
+
+    out << "job_id,duration,R1,R2,R3,R4,predecessors\n";
+
+    for (const auto& z : zadania)
+    {
+        out << z.id << "," << z.duration;
+
+        for (int r : z.resourceRequirements)
+            out << "," << r;
+
+        out << ",";
+
+        for (size_t i = 0; i < z.predecessors.size(); ++i)
+        {
+            out << z.predecessors[i];
+            if (i < z.predecessors.size() - 1)
+                out << ";";
+        }
+
+        out << "\n";
+    }
+
+    out.close();
+}
+
+

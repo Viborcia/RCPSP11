@@ -20,3 +20,4 @@ struct Activity {
 #endif // ACTIVITY_H
 
 int obliczDlugoscSciezkiKrytycznej(const std::vector<Activity>& zadania);
+

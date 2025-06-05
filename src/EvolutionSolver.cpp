@@ -415,6 +415,7 @@ for (const Activity& z : bestSchedule) {
         }
     }
 }
+
     std::ofstream out(nazwaPliku);
     if (!out.is_open()) {
         std::cerr << "Nie można otworzyć pliku do zapisu: " << nazwaPliku << "\n";
