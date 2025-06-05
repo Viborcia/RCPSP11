@@ -349,8 +349,13 @@ void EvolutionSolver::zapiszStatystykiDoCSV(const std::string& nazwaPliku, int r
     double worst = *std::max_element(kosztyPokolen.begin(), kosztyPokolen.end());
     double avg = std::accumulate(kosztyPokolen.begin(), kosztyPokolen.end(), 0.0) / kosztyPokolen.size();
 
-    int sciezka = obliczDlugoscSciezkiKrytycznej(bestSchedule);
-double avgDevCPM = 100.0 * (bestMakespan - sciezka) / (double)sciezka;
+     double sumKw = 0.0;
+    for (int koszt : kosztyPokolen)
+    {
+        double roznica = koszt - avg;
+        sumKw += roznica * roznica;
+    }
+    double stddev = std::sqrt(sumKw / kosztyPokolen.size());
 
     std::ofstream out;
     bool istnieje = std::ifstream(nazwaPliku).good();
@@ -365,7 +370,7 @@ double avgDevCPM = 100.0 * (bestMakespan - sciezka) / (double)sciezka;
         out << "run;best;average;worst;critical_path;avgDevCPM\n";
     }
 
-    out << run << ";" << best << ";" << avg << ";" << worst << ";" << sciezka << ";" << avgDevCPM << "\n";
+    out << run << ";" << best << ";" << avg << ";" << worst << ";" << stddev << ";" << "\n";
     out.close();
 }
 
