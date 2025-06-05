@@ -214,9 +214,15 @@ void RandomSolver::zapiszStatystykiDoCSV(const std::string& nazwaPliku, int run)
     double worst = *std::max_element(kosztyProb.begin(), kosztyProb.end());
     double avg = std::accumulate(kosztyProb.begin(), kosztyProb.end(), 0.0) / kosztyProb.size();
     
-    int sciezka = obliczDlugoscSciezkiKrytycznej(schedule);
-    double avgDevCPM = 100.0 * (makespan - sciezka) / (double)sciezka;
-
+   // int sciezka = obliczDlugoscSciezkiKrytycznej(schedule);
+   // double avgDevCPM = 100.0 * (makespan - sciezka) / (double)sciezka;
+ double sumKw = 0.0;
+    for (int koszt : kosztyProb)
+    {
+        double roznica = koszt - avg;
+        sumKw += roznica * roznica;
+    }
+    double stddev = std::sqrt(sumKw / kosztyProb.size());
 
     std::ofstream out;
     bool istnieje = std::ifstream(nazwaPliku).good();
@@ -233,7 +239,7 @@ void RandomSolver::zapiszStatystykiDoCSV(const std::string& nazwaPliku, int run)
         out << "run;best;average;worst;critical_path;avgDevCPM\n";; // nagłówek tylko jeśli plik nie istniał
     }
 
-    out << run << ";" << best << ";" << avg << ";" << worst << ";" << sciezka << ";" << avgDevCPM << "\n";
+    out << run << ";" << best << ";" << avg << ";" << worst << ";" << stddev << ";" << "\n";
     out.close();
 }
 
