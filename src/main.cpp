@@ -48,7 +48,7 @@ int main()
 //if (!loader.wczytajZPliku("j901_1.sm")) 
 
 RCPSPLoader loader;
-std::string sciezkaDoPliku = "C:\\Users\\micha\\Desktop\\RCPSP11-main\\RCPSP11-main\\RCPSP11\\src\\j1201_1.sm";
+std::string sciezkaDoPliku = "C:\\Users\\Zuzia\\Desktop\\RCPSP1\\j120.sm\\j1201_1.sm";
 std::string nazwaInstancji = wyciagnijNazwePliku(sciezkaDoPliku);
 
 if (!loader.wczytajZPliku(sciezkaDoPliku))
@@ -65,7 +65,7 @@ if (!loader.wczytajZPliku(sciezkaDoPliku))
     auto startwsio = std::chrono::high_resolution_clock::now();
     
     int liczbaUruchomien = 1;
-    /*
+    
 
     // === RANDOM SOLVER ===
 auto startRand = std::chrono::high_resolution_clock::now();
@@ -210,10 +210,10 @@ auto stopSA = std::chrono::high_resolution_clock::now();
 std::chrono::duration<double> elapsedSA = stopSA - startSA;
 std::cout << "[SimulatedAnnealing] Czas wykonania: " << elapsedSA.count() << " sekund\n";
 
-*/
+
 auto startEA = std::chrono::high_resolution_clock::now();
 
-int populacja = 500;
+int populacja = 50;
 int pokolenia = 1000;
 double prawdMutacji = 0.01;
 double prawdKrzyzowania = 0.3;
@@ -235,6 +235,9 @@ for (int run = 0; run < liczbaUruchomien; ++run)
         najlepszyRunEA = run;
         najlepszyEA = solver;
         najlepszyEA.zapiszWykorzystanieZasobow("zasoby_evolution.csv", loader.getLiczbaZasobow());
+        int sciezka = obliczDlugoscSciezkiKrytycznej(solver.getSchedule());
+        zapiszFitnessDoCSV("EA", nazwaInstancji, najlepszyEA.getMakespan(), sciezka);
+
     }
 }
 
