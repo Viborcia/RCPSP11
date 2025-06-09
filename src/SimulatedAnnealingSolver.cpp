@@ -90,7 +90,7 @@ void SimulatedAnnealingSolver::solve(const std::vector<Activity>& zadaniaWejscie
 
         temperatura *= wspolczynnikChlodzenia;
 
-        if (iter % 100 == 0)
+        if (iter % 500 == 0)
             std::cout << "[Iteracja " << iter << "] makespan = " << aktualnyKoszt
             << " (best = " << najlepszyKoszt << ")\n";
     }
@@ -108,8 +108,6 @@ int obliczMakespan(const std::vector<Activity>& harmonogram)
         if (z.end_time > maks) maks = z.end_time;
     return maks;
 }
-
-
 
 void SimulatedAnnealingSolver::printSchedule() const
 {
