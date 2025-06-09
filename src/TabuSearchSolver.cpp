@@ -89,7 +89,8 @@ void TabuSearchSolver::solve(const std::vector<Activity>& zadaniaWejscie,
             bestCost = bestNeighborCost;
             bezPoprawy = 0;
         }
-        else {
+        else 
+        {
             bezPoprawy++;
         }
 

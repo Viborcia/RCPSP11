@@ -13,7 +13,6 @@ using namespace std;
 #include <iomanip>
 #include <locale>
 
-
 int optimum = 125; // ← ustaw raz globalnie w main.cpp
 //43,47,47
 //77,68,68

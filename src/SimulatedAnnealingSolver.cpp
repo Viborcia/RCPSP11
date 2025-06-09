@@ -109,8 +109,6 @@ int obliczMakespan(const std::vector<Activity>& harmonogram)
     return maks;
 }
 
-
-
 void SimulatedAnnealingSolver::printSchedule() const
 {
     std::cout << "\n=== Najlepszy harmonogram (SimulatedAnnealingSolver) ===\n";
