@@ -48,7 +48,7 @@ int main()
 //if (!loader.wczytajZPliku("j901_1.sm")) 
 
 RCPSPLoader loader;
-std::string sciezkaDoPliku = "C:\\Users\\Zuzia\\Desktop\\RCPSP1\\j120.sm\\j1201_1.sm";
+std::string sciezkaDoPliku = "C:\\Users\\Zuzia\\Desktop\\RCPSP1\\j120.sm\\j1201_3.sm";
 std::string nazwaInstancji = wyciagnijNazwePliku(sciezkaDoPliku);
 
 if (!loader.wczytajZPliku(sciezkaDoPliku))
@@ -70,7 +70,7 @@ if (!loader.wczytajZPliku(sciezkaDoPliku))
     // === RANDOM SOLVER ===
 auto startRand = std::chrono::high_resolution_clock::now();
 
-int randIteracji = 1;
+int randIteracji = 10;
 int najlepszyRun = -1;
 int najlepszyKoszt = std::numeric_limits<int>::max();
 RandomSolver najlepszySolver(randIteracji); 
@@ -169,7 +169,7 @@ std::cout << "[TabuSearch] Czas wykonania: " << elapsedTS.count() << " sekund\n"
 auto startSA = std::chrono::high_resolution_clock::now();
 
 double startTemp = 100000.0;          
-double endTemp = .1;                
+double endTemp = 0.1;                
 double coolingRate = 0.95;          
 int maxIter = 10000;                
 int najlepszyRunSA = -1;
@@ -213,11 +213,11 @@ std::cout << "[SimulatedAnnealing] Czas wykonania: " << elapsedSA.count() << " s
 
 auto startEA = std::chrono::high_resolution_clock::now();
 
-int populacja = 50;
+int populacja = 100;
 int pokolenia = 1000;
-double prawdMutacji = 0.01;
-double prawdKrzyzowania = 0.3;
-int rozmiarTurnieju = 3;
+double prawdMutacji = 0.05;
+double prawdKrzyzowania = 0.6;
+int rozmiarTurnieju = 10;
 
 int najlepszyRunEA = -1;
 int najlepszyKosztEA = std::numeric_limits<int>::max();

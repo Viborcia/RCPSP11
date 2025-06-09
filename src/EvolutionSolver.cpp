@@ -30,6 +30,7 @@ void EvolutionSolver::solve(const std::vector<Activity>& tasks, int numTasks, in
 
     for (int g = 0; g < generations; ++g)
     {
+            std::cout << "Generacja: " << g << "\n";
         for (int i = 0; i < populationSize; ++i)
         {
             std::vector<Activity> tempSchedule;
@@ -40,6 +41,20 @@ void EvolutionSolver::solve(const std::vector<Activity>& tasks, int numTasks, in
                 bestMakespan = fitness[i];
                 bestSchedule = tempSchedule;
             }
+        }
+        // Tworzenie rankingu populacji na podstawie fitness
+        std::vector<std::pair<Chromosome, int>> rankedPopulation;
+        for (int i = 0; i < populationSize; ++i){
+             rankedPopulation.emplace_back(population[i], fitness[i]);
+        }
+        std::sort(rankedPopulation.begin(), rankedPopulation.end(),
+          [](const auto& a, const auto& b) {
+              return a.second < b.second;  // porównuj fitness
+          });
+          int eliteCount = 10;  // elitarne osobniki
+        std::vector<Chromosome> eliteIndividuals;
+        for (int i = 0; i < eliteCount; ++i){
+         eliteIndividuals.push_back(rankedPopulation[i].first);
         }
 
         int bestInGeneration = *std::min_element(fitness.begin(), fitness.end());
@@ -52,7 +67,7 @@ void EvolutionSolver::solve(const std::vector<Activity>& tasks, int numTasks, in
 
         int avgFit = std::accumulate(fitness.begin(), fitness.end(), 0.0) / fitness.size();
         int worstFit = *std::max_element(fitness.begin(), fitness.end());
-
+         std::cout << "  Best: " << bestInGeneration << ", Avg: " << avgFit << ", Worst: " << worstFit << "\n";
         std::ofstream out("statystyki_generacji.csv", std::ios::app);
         if (out.is_open()) {
             if (g == 0)
@@ -62,25 +77,69 @@ void EvolutionSolver::solve(const std::vector<Activity>& tasks, int numTasks, in
         }
 
         std::vector<Chromosome> newPopulation;
+        
+        // Elitaryzm — przeniesienie najlepszego osobnika bez zmian
+       //auto minIt = std::min_element(fitness.begin(), fitness.end());
+       // int bestIndex = std::distance(fitness.begin(), minIt);
+       // newPopulation.push_back(population[bestIndex]);
+        //ELITARYZM Powyżej 1 osobnika
+        newPopulation.insert(newPopulation.end(), eliteIndividuals.begin(), eliteIndividuals.end());
+
 
         while ((int)newPopulation.size() < populationSize)
         {
             Chromosome parent1 = tournamentSelection(population, fitness);
             Chromosome parent2 = tournamentSelection(population, fitness);
+            // DEBUG: Wyświetlenie rodziców
+            std::vector<Activity> tmpSched1, tmpSched2, tmpChild1, tmpChild2;
+            int fitParent1 = evaluate(parent1, tasks, numResources, resourceCapacities, tmpSched1);
+            int fitParent2 = evaluate(parent2, tasks, numResources, resourceCapacities, tmpSched2);
+             std::cout <<fitParent1<< "   Rodzic 1: ";
+        for (int gene : parent1) std::cout << gene << " ";
+        std::cout << fitParent2<<"\n    Rodzic 2: ";
+        for (int gene : parent2) std::cout << gene << " ";
+        std::cout << "\n";
 
             Chromosome child1 = parent1;
             Chromosome child2 = parent2;
+
+            
 
             if (std::generate_canonical<double, 10>(gen) < crossoverRate)
             {
                 auto children = crossoverOX(parent1, parent2);
                 child1 = children.first;
                 child2 = children.second;
+                 std::cout <<fitParent1<< "  Krzyżowanie:\n    Rodzic 1: ";
+        for (int gene : parent1) std::cout << gene << " ";
+        std::cout <<fitParent2<< "\n    Rodzic 2: ";
+        for (int gene : parent2) std::cout << gene << " ";
+        std::cout << "\n";
+        // Oblicz fitness dzieci
+int fitChild1 = evaluate(child1, tasks, numResources, resourceCapacities, tmpChild1);
+int fitChild2 = evaluate(child2, tasks, numResources, resourceCapacities, tmpChild2);
+         std::cout <<fitChild1<< "  Po Krzyżowaniu:\n    dziecko 1: ";
+        for (int gene : child1) std::cout << gene << " ";
+        std::cout <<fitChild1<< "\n    dziecko 2: ";
+        for (int gene : child2) std::cout << gene << " ";
+        std::cout << "\n";
+
             }
 
             // Mutacja ZAWSZE, niezależnie od krzyżowania
             mutateAdvanced(child1);
             mutateAdvanced(child2);
+            //mutateSwap(child1);
+            //mutateSwap(child2);
+               // Oblicz fitness dzieci po mutacji
+int fitChild1 = evaluate(child1, tasks, numResources, resourceCapacities, tmpChild1);
+int fitChild2 = evaluate(child2, tasks, numResources, resourceCapacities, tmpChild2);
+             std::cout << "  Po Mutacji:\n    dziecko 1: ";
+             std::cout<<fitChild1 << "    Dziecko 1 (po mut.): ";
+        for (int gene : child1) std::cout << gene << " ";
+        std::cout <<fitChild2<< "\n    Dziecko 2 (po mut.): ";
+        for (int gene : child2) std::cout << gene << " ";
+        std::cout << "\n";
 
             newPopulation.push_back(child1);
             if ((int)newPopulation.size() < populationSize)
