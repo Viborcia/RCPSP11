@@ -77,8 +77,10 @@ int main()
 //if (!loader.wczytajZPliku("j901_1.sm")) 
 
 RCPSPLoader loader;
+
 //std::string sciezkaDoPliku = "C:\\Users\\Zuzia\\Desktop\\RCPSP1\\j120.sm\\j1201_1.sm";
 std::string sciezkaDoPliku = "C:\\Users\\micha\\Desktop\\RCPSP11-main\\RCPSP11-main\\RCPSP11\\src\\j1201_3.sm";
+
 
 std::string nazwaInstancji = wyciagnijNazwePliku(sciezkaDoPliku);
 
@@ -100,7 +102,7 @@ if (!loader.wczytajZPliku(sciezkaDoPliku))
     // === RANDOM SOLVER ===
 auto startRand = std::chrono::high_resolution_clock::now();
 
-int randIteracji = 1;
+int randIteracji = 10;
 int najlepszyRun = -1;
 int najlepszyKoszt = std::numeric_limits<int>::max();
 RandomSolver najlepszySolver(randIteracji); 
@@ -255,38 +257,42 @@ auto stopSA = std::chrono::high_resolution_clock::now();
 std::chrono::duration<double> elapsedSA = stopSA - startSA;
 std::cout << "[SimulatedAnnealing] Czas wykonania: " << elapsedSA.count() << " sekund\n";
 
-/*
+
 
 auto startEA = std::chrono::high_resolution_clock::now();
 
-int populacja = 500;
+int populacja = 100;
 int pokolenia = 1000;
-double prawdMutacji = 0.01;
-double prawdKrzyzowania = 0.3;
-int rozmiarTurnieju = 3;
+double prawdMutacji = 0.05;
+double prawdKrzyzowania = 0.6;
+int rozmiarTurnieju = 10;
 
 int najlepszyRunEA = -1;
 int najlepszyKosztEA = std::numeric_limits<int>::max();
 EvolutionSolver najlepszyEA(populacja, pokolenia, prawdMutacji, prawdKrzyzowania, rozmiarTurnieju);
+std::vector<int> makespanyEA;
 
 for (int run = 0; run < liczbaUruchomien; ++run)
 {
     EvolutionSolver solver(populacja, pokolenia, prawdMutacji, prawdKrzyzowania, rozmiarTurnieju);
     solver.solve(loader.zadania, loader.liczbaZadan, loader.liczbaZasobow, loader.zasobyPojemnosc);
     solver.zapiszStatystykiDoCSV("wyniki_evolution.csv", run);
-
+    int wynik = solver.getMakespan();
+    makespanyEA.push_back(wynik);
     if (solver.getMakespan() < najlepszyKosztEA)
     {
         najlepszyKosztEA = solver.getMakespan();
         najlepszyRunEA = run;
         najlepszyEA = solver;
         najlepszyEA.zapiszWykorzystanieZasobow("zasoby_evolution.csv", loader.getLiczbaZasobow());
-        int sciezka = obliczDlugoscSciezkiKrytycznej(solver.getSchedule());
-        zapiszFitnessDoCSV("EA", nazwaInstancji, najlepszyEA.getMakespan(), sciezka);
+        //int sciezka = obliczDlugoscSciezkiKrytycznej(solver.getSchedule());
+       // zapiszFitnessDoCSV("EA", nazwaInstancji, najlepszyEA.getMakespan(), sciezka);
 
     }
 }
 
+int sciezkaEA = obliczDlugoscSciezkiKrytycznej(najlepszyEA.getSchedule());
+zapiszFitnessDoCSV("EA", nazwaInstancji, najlepszyEA.getMakespan(), sciezkaEA,makespanyEA);
 najlepszyEA.zapiszDoCSV("harmonogram_evolution.csv");
 std::cout << "Najlepszy EVOLUTION run: #" << najlepszyRunEA << "\n";
 std::cout << "Koszt (makespan): " << najlepszyKosztEA << "\n";
@@ -294,7 +300,7 @@ std::cout << "Koszt (makespan): " << najlepszyKosztEA << "\n";
 auto stopEA = std::chrono::high_resolution_clock::now();
 std::chrono::duration<double> elapsedEA = stopEA - startEA;
 std::cout << "[EvolutionSolver] Czas wykonania: " << elapsedEA.count() << " sekund\n";
-*/
+
 
 auto stopwsio = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsedwsio = stopwsio - startwsio;
