@@ -50,7 +50,7 @@ void TabuSearchSolver::solve(const std::vector<Activity>& zadaniaWejscie,
         int bestNeighborCost = std::numeric_limits<int>::max();
         std::pair<int, int> bestMove = { -1, -1 };
 
-        for (int k = 0; k < 500; ++k)
+        for (int k = 0; k < 25; ++k)
         {
             int i = gen() % liczbaZadan;
             int j = gen() % liczbaZadan;
@@ -89,7 +89,8 @@ void TabuSearchSolver::solve(const std::vector<Activity>& zadaniaWejscie,
             bestCost = bestNeighborCost;
             bezPoprawy = 0;
         }
-        else {
+        else 
+        {
             bezPoprawy++;
         }
 
@@ -104,7 +105,7 @@ void TabuSearchSolver::solve(const std::vector<Activity>& zadaniaWejscie,
             }
         }
 
-        if (bezPoprawy >= 200) {
+        if (bezPoprawy >= 300) {
             std::iota(current.begin(), current.end(), 0);
             std::shuffle(current.begin(), current.end(), gen);
 
@@ -120,7 +121,7 @@ void TabuSearchSolver::solve(const std::vector<Activity>& zadaniaWejscie,
             tabuQueue.clear();
             tabuSet.clear();
 
-            std::cout << "[Restart 200] Losowa permutacja\n";
+            std::cout << "[Restart 300] Losowa permutacja\n";
         }
         else {
             kosztyIteracji.push_back(bestNeighborCost);
