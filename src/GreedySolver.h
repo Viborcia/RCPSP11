@@ -5,21 +5,15 @@
 #include <vector>
 #include <string>
 
-class GreedySolver {
+class GreedySolver 
+{
 public:
-    enum TrybSortowania {
-        NAJKROTSZY_CZAS,
-        NAJWIECEJ_SUCCESSOROW,
-        PRODUKT_DURATION_SUCCESSORS,
-        NAJWIEKSZE_ZASOBY
-    };
-
-    void setTrybSortowania(TrybSortowania t) { tryb = t; }
-
+    /*
     void solve(const std::vector<Activity>& zadaniaWejscie,
                int liczbaZadan,
                int liczbaZasobow,
                const std::vector<int>& pojemnosci);
+    */
 
     void solveAuto(const std::vector<Activity>& zadaniaWejscie,
                    int liczbaZadan,
@@ -36,7 +30,7 @@ public:
 private:
     std::vector<Activity> schedule;
     int makespan = 0;
-    TrybSortowania tryb = NAJKROTSZY_CZAS;
+    
 };
 
 #endif

@@ -2,19 +2,44 @@
 #include <vector>
 #include <algorithm>
 
-// Funkcja oblicza długość ścieżki krytycznej w grafie zadań
-int obliczDlugoscSciezkiKrytycznej(const std::vector<Activity>& zadania) {
+// ============================================================================
+// Funkcja oblicza długość ścieżki krytycznej (makespan) w grafie zadań.
+// Zakłada, że każde zadanie ma zdefiniowanych poprzedników (predecessors).
+// Działa podobnie do obliczania najwcześniejszych czasów zakończenia.
+// ============================================================================
+
+int obliczDlugoscSciezkiKrytycznej(const std::vector<Activity>& zadania)
+{
+    // Tablica przechowująca najwcześniejszy czas zakończenia dla każdego zadania
     std::vector<int> najwczesniejszyKoniec(zadania.size(), 0);
 
-    // Dla każdego zadania oblicz najwcześniejszy możliwy czas zakończenia
-    for (const auto& akt : zadania) {
-        int start = 0;
-        for (int p : akt.predecessors) {
-            start = std::max(start, najwczesniejszyKoniec[p]);
+    // Przejdź po każdym zadaniu, aby obliczyć jego najwcześniejszy koniec
+    for (int i = 0; i < zadania.size(); ++i)
+    {
+        int start = 0; // Czas rozpoczęcia zadania (zależy od poprzedników)
+
+        // Przejdź po wszystkich poprzednikach zadania
+        for (int j = 0; j < zadania[i].predecessors.size(); ++j)
+        {
+            int poprzednik = zadania[i].predecessors[j];
+
+            // Aktualizuj czas startu: musi być >= końca poprzednika
+            if (najwczesniejszyKoniec[poprzednik] > start)
+                start = najwczesniejszyKoniec[poprzednik];
         }
-        najwczesniejszyKoniec[akt.id] = start + akt.duration;
+
+        // Oblicz koniec aktualnego zadania: start + czas trwania
+        najwczesniejszyKoniec[zadania[i].id] = start + zadania[i].duration;
     }
 
-    // Zwróć maksymalny czas zakończenia — to długość ścieżki krytycznej
-    return *std::max_element(najwczesniejszyKoniec.begin(), najwczesniejszyKoniec.end());
+    // Znajdź maksymalny czas zakończenia – to długość ścieżki krytycznej
+    int maks = 0;
+    for (int i = 0; i < najwczesniejszyKoniec.size(); ++i)
+    {
+        if (najwczesniejszyKoniec[i] > maks)
+            maks = najwczesniejszyKoniec[i];
+    }
+
+    return maks; // Zwróć długość ścieżki krytycznej
 }
+ 
