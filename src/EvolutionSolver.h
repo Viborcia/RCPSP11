@@ -8,7 +8,7 @@
 class EvolutionSolver
 {
 public:
-    EvolutionSolver(int populationSize, int generations, double crossoverRate, double mutationRate, int tournamentSize);
+    EvolutionSolver(int populationSize, int generations, double crossoverRate, double mutationRate, int tournamentSize, double individualMutationRate);
 
     void solve(const std::vector<Activity>& tasks, int numTasks, int numResources, const std::vector<int>& resourceCapacities);
     void printSchedule() const;
@@ -27,6 +27,7 @@ private:
     int generations;
     double crossoverRate;
     double mutationRate;
+    double individualMutationRate;
     int tournamentSize;
 
     int bestMakespan = 0;
